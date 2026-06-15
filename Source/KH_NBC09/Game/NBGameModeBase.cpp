@@ -200,6 +200,12 @@ void ANBGameModeBase::ResetGame()
 		if (IsValid(NBPlayerController) == true)
 		{
 			NBPlayerController->ClientRPCClearGuessLog();
+
+			ANBPlayerState* NBPS = NBPlayerController->GetPlayerState<ANBPlayerState>();
+			if (IsValid(NBPS) == true)
+			{
+				NBPlayerController->ClientRPCSetCountText(NBPS->CurrentGuessCount, NBPS->MaxGuessCount);
+			}
 		}
 
 		ANBPlayerState* NBPS = NBPlayerController->GetPlayerState<ANBPlayerState>();

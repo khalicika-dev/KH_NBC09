@@ -40,7 +40,7 @@ public:
 
 	void ResetGame();
 
-	void JudgeGame(ANBPlayerController* InChattingPlayerController, int InStrikeCount);
+	bool JudgeGame(ANBPlayerController* InChattingPlayerController, int InStrikeCount);
 protected:
 	FString SecretNumberString;
 

@@ -129,8 +129,19 @@ void ANBGameModeBase::PrintChatMessageString(ANBPlayerController* InChattingPlay
 {
 	FString PlayerInfoString = TEXT("");
 	PrintResult OutputType = IsGuessNumberString(InChatMessageString);
+
+	ANBPlayerState* ChatPS = InChattingPlayerController->GetPlayerState<ANBPlayerState>();
+	if (IsValid(ChatPS) == true)
+	{
+		if (ChatPS->CurrentGuessCount >= ChatPS->MaxGuessCount)
+		{
+			OutputType = PrintResult::CHAT;
+		}
+	}
+
 	if (OutputType == PrintResult::VALID)
 	{
+		bool EndGame = false;
 		FString JudgeResultString = JudgeResult(SecretNumberString, InChatMessageString);
 
 		IncreaseGuessCount(InChattingPlayerController);
@@ -139,7 +150,6 @@ void ANBGameModeBase::PrintChatMessageString(ANBPlayerController* InChattingPlay
 			ANBPlayerController* NBPlayerController = *It;
 			if (IsValid(NBPlayerController) == true)
 			{
-				ANBPlayerState* ChatPS = InChattingPlayerController->GetPlayerState<ANBPlayerState>();
 				if (IsValid(ChatPS) == true)
 				{
 					PlayerInfoString = ChatPS->GetPlayerInfoString();
@@ -151,10 +161,14 @@ void ANBGameModeBase::PrintChatMessageString(ANBPlayerController* InChattingPlay
 				FString CombinedMessageString = PlayerInfoString + TEXT(": ") + InChatMessageString + TEXT(" -> ") + JudgeResultString;
 				NBPlayerController->ClientRPCPrintChatMessageString(CombinedMessageString);
 				NBPlayerController->ClientRPCAddGuessLog(InChatMessageString + TEXT(" -> ") + JudgeResultString);
-
+				
 				int32 StrikeCount = FCString::Atoi(*JudgeResultString.Left(1));
-				JudgeGame(InChattingPlayerController, StrikeCount);
+				EndGame = JudgeGame(InChattingPlayerController, StrikeCount);
 			}
+		}
+		if (EndGame == true)
+		{
+			ResetGame();
 		}
 	}
 	else
@@ -164,7 +178,6 @@ void ANBGameModeBase::PrintChatMessageString(ANBPlayerController* InChattingPlay
 			ANBPlayerController* NBPlayerController = *It;
 			if (IsValid(NBPlayerController) == true)
 			{
-				ANBPlayerState* ChatPS = InChattingPlayerController->GetPlayerState<ANBPlayerState>();
 				if (IsValid(ChatPS) == true)
 				{
 					PlayerInfoString = ChatPS->GetPlayerInfoString();
@@ -187,6 +200,7 @@ void ANBGameModeBase::IncreaseGuessCount(ANBPlayerController* InChattingPlayerCo
 	if (IsValid(NBPS) == true)
 	{
 		NBPS->CurrentGuessCount++;
+		UE_LOG(LogTemp, Warning, TEXT("Count:%d"), NBPS->CurrentGuessCount);
 	}
 }
 
@@ -204,31 +218,27 @@ void ANBGameModeBase::ResetGame()
 			ANBPlayerState* NBPS = NBPlayerController->GetPlayerState<ANBPlayerState>();
 			if (IsValid(NBPS) == true)
 			{
+				NBPS->CurrentGuessCount = 0;
 				NBPlayerController->ClientRPCSetCountText(NBPS->CurrentGuessCount, NBPS->MaxGuessCount);
 			}
-		}
-
-		ANBPlayerState* NBPS = NBPlayerController->GetPlayerState<ANBPlayerState>();
-		if (IsValid(NBPS) == true)
-		{
-			NBPS->CurrentGuessCount = 0;
 		}
 	}
 }
 
-void ANBGameModeBase::JudgeGame(ANBPlayerController* InChattingPlayerController, int InStrikeCount)
+bool ANBGameModeBase::JudgeGame(ANBPlayerController* InChattingPlayerController, int InStrikeCount)
 {
+	bool bEnd = false;
 	if (InStrikeCount == 3)
 	{
 		ANBPlayerState* NBPS = InChattingPlayerController->GetPlayerState<ANBPlayerState>();
-		for (const auto& ANBPlayerController : AllPlayerControllers)
+		for (const auto& NBPlayerController : AllPlayerControllers)
 		{
 			if (IsValid(NBPS) == true)
 			{
 				FString CombinedMessageString = NBPS->PlayerNameString + TEXT(" has won the game.");
-				ANBPlayerController->ClientRPCPrintNotificationMessage(FText::FromString(CombinedMessageString));
+				NBPlayerController->ClientRPCPrintNotificationMessage(FText::FromString(CombinedMessageString));
 
-				ResetGame();
+				bEnd = true;
 			}
 		}
 	}
@@ -249,12 +259,14 @@ void ANBGameModeBase::JudgeGame(ANBPlayerController* InChattingPlayerController,
 		}
 		if (bIsDraw == true)
 		{
-			for (const auto& ANBPlayerController : AllPlayerControllers)
+			for (const auto& NBPlayerController : AllPlayerControllers)
 			{
-				ANBPlayerController->ClientRPCPrintNotificationMessage(FText::FromString(TEXT("Draw...")));
+				NBPlayerController->ClientRPCPrintNotificationMessage(FText::FromString(TEXT("Draw...")));
 
-				ResetGame();
+				bEnd = true;
 			}
 		}
 	}
+
+	return bEnd;
 }
